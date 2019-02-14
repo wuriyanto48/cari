@@ -1,0 +1,7 @@
+[package]
+name = "cari"
+version = "0.1.0"
+authors = ["wuriyanto <wuriyanto48@yahoo.co.id>"]
+edition = "2018"
+
+[dependencies]
