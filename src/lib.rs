@@ -1,3 +1,5 @@
+use std::io::prelude::*;
+use std::fs::File;
 
 const VERSION: &'static str = "0.0.0";
 
@@ -77,6 +79,20 @@ impl Arguments {
             return Err("invalid arguments");
         }
     }
+}
+
+fn read_file(path: &String) -> Result<String, &'static str> {
+    let mut f = match File::open(&path) {
+        Ok(f) => f,
+        Err(_) => return Err("error reading path file"), 
+    };
+
+    let mut contents = String::new();
+    if let Err(_) = f.read_to_string(&mut contents) {
+        return Err("error reading contents");
+    };
+
+    Ok(contents)
 }
 
 #[cfg(test)]
