@@ -10,9 +10,9 @@ An Expremimental word finder inside text file
 > Experimental Version
 
 ### Usage:
-- one
-- two
-- three
+```shell
+$ cargo run -- -f my_file.txt -k get -t 4
+```
 
 #
 ### Author
