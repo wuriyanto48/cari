@@ -1,5 +1,9 @@
 use std::io::prelude::*;
 use std::fs::File;
+use std::thread;
+use std::str;
+use std::sync::mpsc;
+use std::sync::{Mutex, Arc};
 
 const VERSION: &'static str = "0.0.0";
 
@@ -78,21 +82,72 @@ impl Arguments {
         } else {
             return Err("invalid arguments");
         }
+         
     }
 }
 
-fn read_file(path: &String) -> Result<String, &'static str> {
+pub fn run(args: Arguments, sender_res: mpsc::Sender<u64>, 
+    sender_contents: mpsc::Sender<String>, 
+    receiver_contents: Arc<Mutex<mpsc::Receiver<String>>>) -> Result<(), &'static str> {
+    if let Err(err) = read_file(&args.file_name, sender_contents) {
+            return Err(err);
+    };
+
+    let counter = Arc::new(Mutex::new(0));
+    let keyword = args.keyword.to_lowercase();
+    
+
+    for _ in 0..args.threads {
+        let receiver_contents = receiver_contents.clone();
+        let counter = counter.clone();
+        let sender_res = sender_res.clone();
+        let keyword = keyword.clone();
+        thread::spawn(move || {
+            for c in receiver_contents.lock().unwrap().iter() {
+                let counter = counter.clone();
+                let sender_res = sender_res.clone();
+                let keyword = keyword.clone();
+                search(sender_res, counter, keyword, c);
+            }
+        });
+    }
+
+    Ok(())
+}
+
+fn search(tx: mpsc::Sender<u64>, count: Arc<Mutex<u64>>, keyword: String, contents: String) {
+    let mut num = count.lock().unwrap();
+    for w in contents.lines() {
+        for _ in w.matches(&keyword){      
+            *num += 1;
+        }
+    }
+    tx.send(*num).unwrap();
+}
+
+fn read_file(path: &String, tx: mpsc::Sender<String>) -> Result<(), &'static str> {
     let mut f = match File::open(&path) {
         Ok(f) => f,
         Err(_) => return Err("error reading path file"), 
     };
 
-    let mut contents = String::new();
-    if let Err(_) = f.read_to_string(&mut contents) {
-        return Err("error reading contents");
-    };
+     thread::spawn(move || {
+        loop {
+            let mut buffer = vec![0; 1024];
+            // read up to 1024 bytes
+            let line_read = f.read(&mut buffer[..]).unwrap();
 
-    Ok(contents)
+            if line_read == 0 {
+                break;
+            }
+
+            let content_chunks = str::from_utf8(&buffer[..line_read]).unwrap();
+            
+            tx.send(content_chunks.to_lowercase()).unwrap();
+        }
+    });
+
+    Ok(())
 }
 
 #[cfg(test)]
